@@ -31,7 +31,7 @@ async def generate_website_content(
         raise ValueError("Website idea cannot be empty.")
 
     response = await client.responses.parse(
-        model=MODEL_NAME,
+         
         instructions=(
             "You are a senior website requirements analyst. "
             "Analyze the client's website idea and convert it into "
@@ -50,4 +50,4 @@ async def generate_website_content(
             "The AI model did not return a valid website specification."
         )
 
-    return response.output_parsed
+    return response.output_parser
