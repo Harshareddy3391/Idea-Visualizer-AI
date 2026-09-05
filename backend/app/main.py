@@ -1,8 +1,13 @@
-from  fastapi import FastAPI
+from fastapi import FastAPI
 
+app = FastAPI(title="Idea Visualizer AI")
 
-app=FastAPI()
 
 @app.get("/")
-def home():
-    return "root page"
+def root():
+    return {"message": "Idea Visualizer AI Backend is running"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
