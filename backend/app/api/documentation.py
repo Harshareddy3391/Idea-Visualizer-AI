@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 
-from app.schemas.documentation import DocumentationSpecification
+from app.schemas.project import GeneratedWebsiteResult
 from app.services.documentation_pdf_service import generate_documentation_pdf
 
 
@@ -14,15 +14,17 @@ router = APIRouter()
     summary="Generate project documentation PDF",
 )
 async def generate_documentation_pdf_endpoint(
-    documentation: DocumentationSpecification,
+    result: GeneratedWebsiteResult,
 ):
     """
-    Generate a client-facing PDF from the structured documentation
-    produced by the Documentation Agent.
+    Generate a client-facing PDF from the complete website-generation
+    result produced by the LangGraph workflow.
     """
 
     try:
-        pdf_path = generate_documentation_pdf(documentation)
+        pdf_path = generate_documentation_pdf(
+            result.documentation_specification
+        )
 
         return FileResponse(
             path=pdf_path,
@@ -41,4 +43,3 @@ async def generate_documentation_pdf_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"PDF generation failed: {exc}",
         ) from exc
-    
