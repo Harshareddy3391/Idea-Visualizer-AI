@@ -6,7 +6,8 @@ async def generate_website(idea: str) -> dict:
     Start the complete LangGraph website-generation workflow.
 
     The workflow executes the Requirement, Design, Code, Validation,
-    and Repair Agents and returns the final generated website data.
+    Repair, and Documentation Agents and returns the final generated
+    website data and client documentation.
     """
 
     idea = idea.strip()
@@ -56,6 +57,12 @@ async def generate_website(idea: str) -> dict:
         "repair_specification": (
             final_state["repair_specification"].model_dump()
             if final_state.get("repair_specification")
+            else None
+        ),
+
+        "documentation_specification": (
+            final_state["documentation_specification"].model_dump()
+            if final_state.get("documentation_specification")
             else None
         ),
 

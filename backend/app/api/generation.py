@@ -19,6 +19,7 @@ async def generate(request: GenerateRequest):
     The API layer is responsible only for request validation, invoking the
     generation service, and returning the service result.
     """
+
     try:
         return await generate_website(request.idea)
 
@@ -31,5 +32,5 @@ async def generate(request: GenerateRequest):
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Website generation failed.",
+            detail=f"Website generation failed: {exc}",
         ) from exc

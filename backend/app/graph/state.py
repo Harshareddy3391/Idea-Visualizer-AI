@@ -1,5 +1,6 @@
 from typing import NotRequired, TypedDict
 
+from app.schemas.documentation import DocumentationSpecification
 from app.schemas.generation import (
     CodeSpecification,
     DesignSpecification,
@@ -13,9 +14,9 @@ class WebsiteGenerationState(TypedDict):
     """
     Shared state for the complete website-generation LangGraph workflow.
 
-    The client idea and repair-attempt counter are provided when the
-    workflow starts. The remaining fields are progressively populated
-    by the Requirement, Design, Code, Validation, and Repair Agents.
+    The workflow progressively stores the client idea, website
+    requirements, UI/UX design, generated code, validation result,
+    repair result, and final client documentation.
     """
 
     # Original website idea provided by the client.
@@ -44,6 +45,11 @@ class WebsiteGenerationState(TypedDict):
     # Repair result produced by the Repair Agent.
     repair_specification: NotRequired[
         RepairSpecification
+    ]
+
+    # Client-facing documentation produced by the Documentation Agent.
+    documentation_specification: NotRequired[
+        DocumentationSpecification
     ]
 
     # Number of repair attempts performed by the workflow.

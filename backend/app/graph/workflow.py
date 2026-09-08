@@ -2,6 +2,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.code_agent import code_agent
 from app.agents.design_agent import design_agent
+from app.agents.documentation_agent import documentation_agent
 from app.agents.repair_agent import repair_agent
 from app.agents.requirement_agent import requirement_agent
 from app.agents.validation_agent import validation_agent
@@ -9,14 +10,10 @@ from app.graph.state import WebsiteGenerationState
 from app.schemas.generation import CodeSpecification
 
 
-# Maximum number of times the Repair Agent can attempt to fix
-# invalid generated website code.
 MAX_REPAIR_ATTEMPTS = 3
 
 
-async def requirement_node(
-    state: WebsiteGenerationState,
-) -> dict:
+async def requirement_node(state: WebsiteGenerationState) -> dict:
     """
     Execute the Requirement Agent.
 
@@ -29,18 +26,16 @@ async def requirement_node(
     )
 
     return {
-        "website_specification": website_specification,
+        "website_specification": website_specification
     }
 
 
-async def design_node(
-    state: WebsiteGenerationState,
-) -> dict:
+async def design_node(state: WebsiteGenerationState) -> dict:
     """
     Execute the Design Agent.
 
     Uses the structured website requirements to create the
-    UI/UX and visual design specification.
+    UI/UX design specification.
     """
 
     website_specification = state.get(
@@ -57,18 +52,16 @@ async def design_node(
     )
 
     return {
-        "design_specification": design_specification,
+        "design_specification": design_specification
     }
 
 
-async def code_node(
-    state: WebsiteGenerationState,
-) -> dict:
+async def code_node(state: WebsiteGenerationState) -> dict:
     """
     Execute the Code Agent.
 
-    Generates the HTML, CSS, and JavaScript implementation
-    from the website requirements and design specification.
+    Generates HTML, CSS, and JavaScript from the website
+    requirements and UI/UX design specification.
     """
 
     website_specification = state.get(
@@ -95,7 +88,7 @@ async def code_node(
     )
 
     return {
-        "code_specification": code_specification,
+        "code_specification": code_specification
     }
 
 
@@ -105,8 +98,8 @@ async def validation_node(
     """
     Execute the Validation Agent.
 
-    Checks the generated HTML, CSS, and JavaScript against
-    the original website requirements.
+    Validates the generated website code against the
+    original website requirements.
     """
 
     website_specification = state.get(
@@ -133,7 +126,7 @@ async def validation_node(
     )
 
     return {
-        "validation_specification": validation_specification,
+        "validation_specification": validation_specification
     }
 
 
@@ -143,8 +136,8 @@ async def repair_node(
     """
     Execute the Repair Agent.
 
-    Repairs invalid generated website code using the issues
-    identified by the Validation Agent.
+    Repairs invalid generated website code using the
+    issues identified by the Validation Agent.
     """
 
     code_specification = state.get(
@@ -170,9 +163,6 @@ async def repair_node(
         validation_specification=validation_specification,
     )
 
-    # Convert the repaired code into CodeSpecification so that
-    # the next Validation Agent execution receives the same
-    # structured type as the original Code Agent output.
     repaired_code = CodeSpecification(
         html=repair_specification.html,
         css=repair_specification.css,
@@ -186,19 +176,67 @@ async def repair_node(
     }
 
 
+async def documentation_node(
+    state: WebsiteGenerationState,
+) -> dict:
+    """
+    Execute the Documentation Agent.
+
+    Creates structured client-facing documentation after the
+    final website has completed the validation and repair cycle.
+    """
+
+    website_specification = state.get(
+        "website_specification"
+    )
+
+    design_specification = state.get(
+        "design_specification"
+    )
+
+    validation_specification = state.get(
+        "validation_specification"
+    )
+
+    repair_specification = state.get(
+        "repair_specification"
+    )
+
+    if website_specification is None:
+        raise ValueError(
+            "Website specification is missing."
+        )
+
+    if design_specification is None:
+        raise ValueError(
+            "Design specification is missing."
+        )
+
+    if validation_specification is None:
+        raise ValueError(
+            "Validation specification is missing."
+        )
+
+    documentation_specification = await documentation_agent(
+        website_specification=website_specification,
+        design_specification=design_specification,
+        validation_specification=validation_specification,
+        repair_specification=repair_specification,
+    )
+
+    return {
+        "documentation_specification": (
+            documentation_specification
+        )
+    }
+
+
 def validation_router(
     state: WebsiteGenerationState,
 ) -> str:
     """
-    Decide what happens after validation.
-
-    If the generated website is valid, the workflow ends.
-
-    If the website is invalid and repair attempts remain,
-    the workflow sends the code to the Repair Agent.
-
-    If the maximum repair attempts have been reached,
-    the workflow ends with the latest generated code.
+    Decide whether the workflow should proceed to documentation
+    or send the generated code to the Repair Agent.
     """
 
     validation_specification = state.get(
@@ -210,39 +248,39 @@ def validation_router(
             "Validation specification is missing."
         )
 
-    # Website passed validation.
+    # If the website is valid, generate documentation.
     if validation_specification.is_valid:
-        return "end"
+        return "documentation"
 
-    # Prevent an infinite repair loop.
+    # Stop repairing after the maximum number of attempts.
     if state["repair_attempts"] >= MAX_REPAIR_ATTEMPTS:
-        return "end"
+        return "documentation"
 
-    # Send invalid code to the Repair Agent.
+    # Website is invalid and another repair attempt is allowed.
     return "repair"
 
 
 def build_workflow():
     """
-    Build and compile the complete LangGraph website-generation
-    workflow.
+    Build and compile the complete LangGraph website-generation workflow.
 
     Workflow:
 
-        Requirement
-            ↓
-        Design
-            ↓
-        Code
-            ↓
-        Validation
-            ↓
-        Repair ──────┐
-            ↑        │
-            └────────┘
-
-    The workflow ends when validation succeeds or when the
-    maximum repair attempts are reached.
+    Requirement
+        ↓
+    Design
+        ↓
+    Code
+        ↓
+    Validation
+        ↓
+    Repair (if required)
+        ↓
+    Validation
+        ↓
+    Documentation
+        ↓
+    END
     """
 
     workflow = StateGraph(
@@ -275,13 +313,17 @@ def build_workflow():
         repair_node,
     )
 
-    # Initial workflow entry point.
+    workflow.add_node(
+        "documentation",
+        documentation_node,
+    )
+
+    # Main workflow.
     workflow.add_edge(
         START,
         "requirement",
     )
 
-    # Main generation pipeline.
     workflow.add_edge(
         "requirement",
         "design",
@@ -297,23 +339,28 @@ def build_workflow():
         "validation",
     )
 
-    # Decide whether to finish or repair the generated code.
+    # Validation decides whether to repair or document.
     workflow.add_conditional_edges(
         "validation",
         validation_router,
         {
             "repair": "repair",
-            "end": END,
+            "documentation": "documentation",
         },
     )
 
-    # After repairing, validate the repaired code again.
+    # After repair, validate the repaired code again.
     workflow.add_edge(
         "repair",
         "validation",
     )
 
-    # Compile the workflow into an executable LangGraph.
+    # Documentation is the final workflow stage.
+    workflow.add_edge(
+        "documentation",
+        END,
+    )
+
     return workflow.compile()
 
 
