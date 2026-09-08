@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from app.api.generation import router as generation_router
+from app.api.preview import router as preview_router
+
 
 app = FastAPI(
     title="Idea Visualizer AI",
@@ -34,3 +36,6 @@ app.include_router(
     prefix="/api",
     tags=["Generation"],
 )
+
+# Website preview API.
+app.include_router(preview_router,prefix="/api",tags=["preview"])
